@@ -3,61 +3,69 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const path = require("path");
-
 require("dotenv").config();
 
 const pool = require("./config/database");
+const authenticateToken = require("./middleware/authMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
-// ==============================
-// MIDDLEWARE
-// ==============================
+/* ==============================
+   MIDDLEWARE
+============================== */
 
 app.use(cors());
 app.use(express.json());
 
+/* ==============================
+   FRONTEND
+============================== */
 
-// ==============================
-// FRONTEND
-// ==============================
+app.use(
+  express.static(path.join(__dirname, "../Frontend"))
+);
 
-app.use(express.static(
-  path.join(__dirname, "../frontend")
-));
+/* Serve image folder */
+app.use(
+  "/images",
+  express.static(path.join(__dirname, "../Frontend/image"))
+);
 
+/* Homepage */
+app.get("/", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../Frontend/Index.html")
+  );
+});
 
-// ==============================
-// HEALTH CHECK
-// ==============================
+/* ==============================
+   HEALTH
+============================== */
 
 app.get("/api/health", (req, res) => {
   res.json({
-    status: "Backend is running successfully."
+    message: "MY- TECH FOUNDATION backend is running.",
+    status: "OK"
   });
 });
 
-
-// ==============================
-// ABOUT
-// ==============================
+/* ==============================
+   ABOUT
+============================== */
 
 app.get("/api/about", (req, res) => {
   res.json({
     name: "Emmanuel Agbetiameh",
     role: "Computer Science and Engineering Student",
     university: "University of Mines and Technology (UMaT)",
-    message:
-      "Building software, learning, and creating real-world solutions."
+    location: "Accra, Ghana"
   });
 });
 
-
-// ==============================
-// PROJECTS - GET
-// ==============================
+/* ==============================
+   PROJECTS
+============================== */
 
 app.get("/api/projects", async (req, res) => {
   try {
@@ -66,20 +74,14 @@ app.get("/api/projects", async (req, res) => {
     );
 
     res.json(result.rows);
-
   } catch (error) {
-    console.error(error);
+    console.error("Error loading projects:", error);
 
     res.status(500).json({
-      error: "Failed to fetch projects."
+      error: "Failed to load projects."
     });
   }
 });
-
-
-// ==============================
-// PROJECTS - CREATE
-// ==============================
 
 app.post("/api/projects", async (req, res) => {
   try {
@@ -99,20 +101,14 @@ app.post("/api/projects", async (req, res) => {
     );
 
     res.status(201).json(result.rows[0]);
-
   } catch (error) {
-    console.error(error);
+    console.error("Error creating project:", error);
 
     res.status(500).json({
       error: "Failed to create project."
     });
   }
 });
-
-
-// ==============================
-// PROJECTS - UPDATE
-// ==============================
 
 app.put("/api/projects/:id", async (req, res) => {
   try {
@@ -140,9 +136,8 @@ app.put("/api/projects/:id", async (req, res) => {
     }
 
     res.json(result.rows[0]);
-
   } catch (error) {
-    console.error(error);
+    console.error("Error updating project:", error);
 
     res.status(500).json({
       error: "Failed to update project."
@@ -150,19 +145,12 @@ app.put("/api/projects/:id", async (req, res) => {
   }
 });
 
-
-// ==============================
-// PROJECTS - DELETE
-// ==============================
-
 app.delete("/api/projects/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     const result = await pool.query(
-      `DELETE FROM projects
-       WHERE id = $1
-       RETURNING *`,
+      "DELETE FROM projects WHERE id = $1 RETURNING *",
       [id]
     );
 
@@ -176,9 +164,8 @@ app.delete("/api/projects/:id", async (req, res) => {
       message: "Project deleted successfully.",
       project: result.rows[0]
     });
-
   } catch (error) {
-    console.error(error);
+    console.error("Error deleting project:", error);
 
     res.status(500).json({
       error: "Failed to delete project."
@@ -186,42 +173,33 @@ app.delete("/api/projects/:id", async (req, res) => {
   }
 });
 
-
-// ==============================
-// CONTACT
-// ==============================
+/* ==============================
+   CONTACT
+============================== */
 
 app.get("/api/contact", (req, res) => {
   res.json({
     email: "emmanuelagbetiameh9@gmail.com",
-    github: "https://github.com/",
-    linkedin: "linkedin.com/in/Agbetiameh-Emmanuel",
-    phone: [
-      "+233202126773",
-      "+23359366640"
-    ],
-    address: "Sowutuom-Accra, Ghana"
+    location: "Accra, Ghana"
   });
 });
 
-
-// ==============================
-// DATABASE TEST
-// ==============================
+/* ==============================
+   DATABASE TEST
+============================== */
 
 app.get("/api/db-test", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT NOW()"
+      "SELECT NOW() AS current_time"
     );
 
     res.json({
       message: "Database connection successful.",
-      time: result.rows[0].now
+      time: result.rows[0].current_time
     });
-
   } catch (error) {
-    console.error(error);
+    console.error("Database error:", error);
 
     res.status(500).json({
       error: "Database connection failed."
@@ -229,10 +207,9 @@ app.get("/api/db-test", async (req, res) => {
   }
 });
 
-
-// ==============================
-// AUTH - REGISTER
-// ==============================
+/* ==============================
+   AUTHENTICATION
+============================== */
 
 app.post("/api/auth/register", async (req, res) => {
   try {
@@ -240,25 +217,22 @@ app.post("/api/auth/register", async (req, res) => {
 
     if (!name || !email || !password) {
       return res.status(400).json({
-        error: "Name, email, and password are required."
+        error: "Name, email and password are required."
       });
     }
 
     const existingUser = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT id FROM users WHERE email = $1",
       [email]
     );
 
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
-        error: "User already exists."
+        error: "A user with this email already exists."
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10
-    );
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
       `INSERT INTO users (name, email, password)
@@ -271,20 +245,14 @@ app.post("/api/auth/register", async (req, res) => {
       message: "User registered successfully.",
       user: result.rows[0]
     });
-
   } catch (error) {
-    console.error(error);
+    console.error("Registration error:", error);
 
     res.status(500).json({
       error: "Registration failed."
     });
   }
 });
-
-
-// ==============================
-// AUTH - LOGIN
-// ==============================
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -335,9 +303,8 @@ app.post("/api/auth/login", async (req, res) => {
       message: "Login successful.",
       token
     });
-
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
 
     res.status(500).json({
       error: "Login failed."
@@ -345,74 +312,49 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+app.get(
+  "/api/auth/profile",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT id, name, email, created_at
+         FROM users
+         WHERE id = $1`,
+        [req.user.id]
+      );
 
-// ==============================
-// AUTH - PROFILE
-// ==============================
-
-app.get("/api/auth/profile", (req, res) => {
-
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    return res.status(401).json({
-      error: "Access token required."
-    });
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({
-      error: "Access token required."
-    });
-  }
-
-  jwt.verify(
-    token,
-    process.env.JWT_SECRET,
-    (error, user) => {
-
-      if (error) {
-        return res.status(403).json({
-          error: "Invalid or expired token."
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          error: "User not found."
         });
       }
 
-      res.json({
-        message: "Protected profile accessed successfully.",
-        user
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Profile error:", error);
+
+      res.status(500).json({
+        error: "Failed to load profile."
       });
     }
-  );
-});
+  }
+);
 
+app.get(
+  "/api/auth/test",
+  authenticateToken,
+  (req, res) => {
+    res.json({
+      message: "Authentication middleware is working.",
+      user: req.user
+    });
+  }
+);
 
-// ==============================
-// AUTH TEST
-// ==============================
-
-app.get("/api/auth/test", (req, res) => {
-  res.json({
-    message: "Authentication route is working."
-  });
-});
-
-
-// ==============================
-// ROOT ROUTE
-// ==============================
-
-app.get("/", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "../frontend/index.html")
-  );
-});
-
-
-// ==============================
-// 404
-// ==============================
+/* ==============================
+   404 HANDLER
+============================== */
 
 app.use((req, res) => {
   res.status(404).json({
@@ -420,13 +362,12 @@ app.use((req, res) => {
   });
 });
 
-
-// ==============================
-// START SERVER
-// ==============================
+/* ==============================
+   START SERVER
+============================== */
 
 app.listen(PORT, () => {
   console.log(
-    `Server is running on http://localhost:${PORT}`
+    `MY- TECH FOUNDATION server running on http://localhost:${PORT}`
   );
 });

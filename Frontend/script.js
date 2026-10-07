@@ -1,21 +1,4 @@
-const API_URL = "http://localhost:3000/api";
-
-
-// ==============================
-// LOAD ABOUT
-// ==============================
-
-async function loadAbout() {
-  try {
-    const response = await fetch(`${API_URL}/about`);
-    const data = await response.json();
-
-    console.log("About:", data);
-
-  } catch (error) {
-    console.error("Failed to load about:", error);
-  }
-}
+const API_URL = "/api";
 
 
 // ==============================
@@ -23,17 +6,21 @@ async function loadAbout() {
 // ==============================
 
 async function loadProjects() {
+  const projectsList = document.querySelector("#project-list");
+
   try {
     const response = await fetch(`${API_URL}/projects`);
+
+    if (!response.ok) {
+      throw new Error("Failed to load projects.");
+    }
+
     const projects = await response.json();
 
-    const projectsSection = document.querySelector("#projects");
-
-    projectsSection.innerHTML = `
-      <h2>Projects</h2>
-    `;
+    projectsList.innerHTML = "";
 
     projects.forEach((project) => {
+
       const article = document.createElement("article");
 
       article.innerHTML = `
@@ -48,36 +35,24 @@ async function loadProjects() {
         </a>
       `;
 
-      projectsSection.appendChild(article);
+      projectsList.appendChild(article);
     });
 
   } catch (error) {
+
     console.error("Failed to load projects:", error);
+
+    projectsList.innerHTML = `
+      <p>
+        Projects could not be loaded right now.
+      </p>
+    `;
   }
 }
 
 
 // ==============================
-// LOAD CONTACT
+// START WEBSITE
 // ==============================
 
-async function loadContact() {
-  try {
-    const response = await fetch(`${API_URL}/contact`);
-    const data = await response.json();
-
-    console.log("Contact:", data);
-
-  } catch (error) {
-    console.error("Failed to load contact:", error);
-  }
-}
-
-
-// ==============================
-// START
-// ==============================
-
-loadAbout();
 loadProjects();
-loadContact();
