@@ -2,12 +2,11 @@
 const API_URL = "/api";
 
 const PROJECT_LINKS = {
-  "Telegram Bot": {
-    url: "https://t.me/Emmanuel_Slide_Library_bot",
-    label: "Open Telegram Bot",
-    available: true
-  },
-
+"Telegram Bot": {
+  url: "https://t.me/Emmanuel_Slide_Library_bot",
+  label: "Open Telegram Bot",
+  available: true
+},
   "WhatsApp Business Agent": {
     url: null,
     label: "Coming Soon",
